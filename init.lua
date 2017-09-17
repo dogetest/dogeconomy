@@ -1,5 +1,5 @@
 --MONEY!!!
--- ŧ
+-- Ð
 
 -- Boilerplate to support localized strings if intllib mod is installed.
 local S
@@ -11,6 +11,12 @@ else
 end
 
 economy={}
+
+--dogeconomy
+SOURCE_DOGEACC="admin"
+DOGE_FEE=1
+INTERACT_FEE=1+DOGE_FEE
+--
 
 economy.itemprices_pr={
 	["default:wood"]=1,
@@ -54,7 +60,7 @@ economy.itemprices={}
 minetest.after(0, function()
 	for k,v in pairs(economy.itemprices_pr) do
 		if not minetest.registered_items[k] then
-			print("[economy]unknown item in prices list: "..k)
+			print("[dogeconomy]unknown item in prices list: "..k)
 		else
 			economy.itemprices[k]=v
 		end
@@ -69,12 +75,12 @@ economy.accountlog={}
 	{balance=economy.balance, accountlog=economy.accountlog, version=1}
 ]]
 
-economy.fpath=minetest.get_worldpath().."/economy"
+economy.fpath=minetest.get_worldpath().."/dogeconomy"
 local file, err = io.open(economy.fpath, "r")
 if not file then
 	economy.balance = economy.balance or {}
 	local er=err or "Unknown Error"
-	print("[economy]Failed loading economy save file "..er)
+	print("[dogeconomy]Failed loading dogeconomy save file "..er)
 else
 	local deserialize=minetest.deserialize(file:read("*a"))
 	economy.balance = deserialize.balance or deserialize
@@ -88,11 +94,10 @@ else
 	file:close()
 end
 
-
 economy.save = function()
 local datastr = minetest.serialize({balance=economy.balance, accountlog=economy.accountlog, version=1})
 if not datastr then
-	minetest.log("error", "[economy] Failed to serialize balance data!")
+	minetest.log("error", "[dogeconomy] Failed to serialize balance data!")
 	return
 end
 local file, err = io.open(economy.fpath, "w")
@@ -104,11 +109,17 @@ file:close()
 end
 
 --economy globalstep
-economy.save_cntdn=10
+economy.save_cntdn=34
 minetest.register_globalstep(function(dtime)
 	if economy.save_cntdn<=0 then
 		economy.save()
-		economy.save_cntdn=10 --10 seconds interval!
+		--dogeconomy
+    local proxy=rpc.proxy(dogecoin.url, function(res)
+      economy.balance=res
+      end)
+    proxy.listaccounts()
+    --
+		economy.save_cntdn=34 --34 seconds interval!
 	end
 	economy.save_cntdn=economy.save_cntdn-dtime
 end)
@@ -118,18 +129,19 @@ local svm_cbox = {
 	fixed = {-0.5, -0.5, -0.5, 0.5, 1.5, 0.5}
 }
 
-minetest.register_node("economy:vending", {
+minetest.register_node("dogeconomy:vending", {
 	drawtype = "mesh",
 	description = S("Vending Machine"),
 	
-	mesh = "economy_vending.obj",
-	tiles = {"economy_vending.png"},
+	mesh = "dogeconomy_vending.obj",
+	tiles = {"dogeconomy_vending.png"},
 	groups = {snappy=3},
 	selection_box = svm_cbox,
 	collision_box = svm_cbox,
 	
-	inventory_image = "economy_vending_inv.png",
+	inventory_image = "dogeconomy_vending_inv.png",
 	paramtype = "light",
+  light_source=8,
 	paramtype2 = "facedir",
 	groups = {cracky=2},
 	on_rightclick = function(pos, node, clicker, itemstack)
@@ -171,8 +183,26 @@ minetest.register_node("economy:vending", {
 	on_metadata_inventory_put = function(pos, listname, index, stack, player)
 		if listname=="sell" then
 			local priceper=economy.itemprices[stack:get_name()]
-			economy.deposit(player, priceper*stack:get_count(), S("Selling @1x @2", stack:get_count(), (minetest.registered_items[stack:get_name()] and minetest.registered_items[stack:get_name()].description.." ("..stack:get_name()..")" or stack:get_name()) ) )
-			
+			economy.deposit(player,
+			  priceper*stack:get_count(), 
+			  S("Selling @1x @2", stack:get_count(), 
+			    (minetest.registered_items[stack:get_name()]
+			    and 
+			    minetest.registered_items[
+			      stack:get_name()].description..
+			    " ("..stack:get_name()..")" or 
+			    stack:get_name())))
+      --dogeconomy
+			dogecoin.transfer(SOURCE_DOGEACC,
+			  economy.pname(player),
+			  priceper*stack:get_count(),
+			  S("Vending buy: @1x @2", stack:get_count(), 
+			    (minetest.registered_items[stack:get_name()] 
+			    and 
+			    minetest.registered_items[
+			      stack:get_name()].description..
+			    " ("..stack:get_name()..")" or 
+			    stack:get_name())))			
 			local meta=minetest.get_meta(pos)
 			local inv=meta:get_inventory()
 			if meta:get_int(stack:get_name()) then
@@ -186,18 +216,19 @@ minetest.register_node("economy:vending", {
 		end
 	end
 })
-minetest.register_node("economy:bank", {
+minetest.register_node("dogeconomy:bank", {
 	drawtype = "mesh",
 	description = S("Banking Machine"),
 	
-	mesh = "economy_vending.obj",
-	tiles = {"economy_bank.png"},
+	mesh = "dogeconomy_vending.obj",
+	tiles = {"dogeconomy_bank.png"},
 	groups = {snappy=3},
 	selection_box = svm_cbox,
 	collision_box = svm_cbox,
 	
-	inventory_image = "economy_bank_inv.png",
+	inventory_image = "dogeconomy_bank_inv.png",
 	paramtype = "light",
+  light_source=8,
 	paramtype2 = "facedir",
 	groups = {cracky=2},
 	on_rightclick = function(pos, node, clicker, itemstack)
@@ -218,17 +249,18 @@ minetest.register_node("economy:bank", {
 		end
 	end,
 })
-minetest.register_node("economy:playervendor", {
+minetest.register_node("dogeconomy:playervendor", {
 	drawtype = "mesh",
 	description = S("Player-operated Vending Machine"),
 	
-	mesh = "economy_vending.obj",
-	tiles = {"economy_playervendor.png"},
+	mesh = "dogeconomy_vending.obj",
+	tiles = {"dogeconomy_playervendor.png"},
 	selection_box = svm_cbox,
 	collision_box = svm_cbox,
 	
-	inventory_image = "economy_playervendor_inv.png",
+	inventory_image = "dogeconomy_playervendor_inv.png",
 	paramtype = "light",
+  light_source=8,
 	paramtype2 = "facedir",
 	groups = {cracky=2},
 	on_rightclick = function(pos, node, clicker, itemstack)
@@ -290,10 +322,7 @@ economy.pname=function(player_or_name)
 end
 economy.deposit=function(player, amount, reason)
 	local pname=economy.pname(player)
-	if not economy.balance[pname] then
-		economy.balance[pname]=0
-	end
-	economy.balance[pname]=economy.balance[pname]+amount
+	--dogeconomy removed balance deposition
 	if not economy.accountlog[pname] then
 		economy.accountlog[pname]={}
 	end
@@ -311,19 +340,17 @@ economy.canpay=function(player, amount)
 	if not economy.balance[pname] then
 		economy.balance[pname]=0
 	end
-	return economy.balance[pname]>=amount
+	return economy.balance[pname]>=amount+DOGE_FEE
 end
 economy.buyprice=function(sellprice)
 	return math.ceil(sellprice*1.2)
 end
 economy.withdraw=function(player, amount, reason)
 	local pname=economy.pname(player)
-	if not economy.balance[pname] then
-		economy.balance[pname]=0
-	end
 	if not economy.canpay(player, amount) then
 		return false
 	end
+	local amount = amount+DOGE_FEE
 	economy.balance[pname]=economy.balance[pname]-amount
 	if not economy.accountlog[pname] then
 		economy.accountlog[pname]={}
@@ -339,12 +366,11 @@ economy.itemdesc_ext=function(iname)
 end
 
 economy.formspecs={
-	
 	vendingsell={
 		open=function(player, pos, cantsell)
-			minetest.show_formspec(economy.pname(player), "economy_vendingsell_"..minetest.pos_to_string(pos), [[
+			minetest.show_formspec(economy.pname(player), "dogeconomy_vendingsell_"..minetest.pos_to_string(pos), [[
 				size[8,8]
-				label[0,0;]]..S("Your balance: @1ŧ",economy.moneyof(player:get_player_name()))..[[]
+				label[0,0;]]..S("Your balance: Ð@1",economy.moneyof(player:get_player_name()))..[[]
 				button[1,1;3,1;buy;]]..S("Buy Items/Price List")..[[]
 				list[nodemeta:]]..pos.x..","..pos.y..","..pos.z..[[;sell;2,2;1,1;]
 				]]..(cantsell and "label[1,3;"..S("You can't sell this item. Please see price list.").."]" or "label[1,3;"..S("Put items here to sell them.").."]")..[[
@@ -379,7 +405,7 @@ economy.formspecs={
 			if page<1 then page=1 end
 			if page>totalPages then page=totalPages end
 			
-			local formspec="size[8,8]button[1,6.5;3,1;sell;"..S("Sell items").."]label[0,0;"..S("Your balance: @1ŧ",economy.moneyof(player:get_player_name())).."]"
+			local formspec="size[8,8]button[1,6.5;3,1;sell;"..S("Sell items").."]label[0,0;"..S("Your balance: Ð@1",economy.moneyof(player:get_player_name())).."]"
 			
 			if page~=1 then formspec=formspec.."button[5,6.5;1,1;page_"..(page-1)..";<<]" end
 			if page~=totalPages then formspec=formspec.."button[6,6.5;1,1;page_"..(page+1)..";>>]" end
@@ -389,16 +415,16 @@ economy.formspecs={
 				if idsp[i] then
 					if idsp[i].count>0 then
 						--formspec=formspec.."item_image_button[1,"..(((i-1)%10)*0.5+1)..";0.6,0.6;"..idsp[i].name..";buy_"..idsp[i].name..";]"
-						--.."label[2,"..(((i-1)%10)*0.5+1)..";Verkauf "..idsp[i].price.." ŧ / Kauf "..economy.buyprice(idsp[i].price).." ŧ ("..idsp[i].count.." verfügbar)]"
+						--.."label[2,"..(((i-1)%10)*0.5+1)..";Verkauf "..idsp[i].price.." Ð / Kauf "..economy.buyprice(idsp[i].price).." Ð ("..idsp[i].count.." verfügbar)]"
 						formspec=formspec.."item_image_button[0,"..(((i-1)%10)*0.5+1)..";0.6,0.6;"..idsp[i].name..";buy_"..idsp[i].name..";]"..
 						"label[0.5,"..(((i-1)%10)*0.5+1)..";("..idsp[i].count..") "..economy.itemdesc(idsp[i].name).."]"..
-						"label[4,"..(((i-1)%10)*0.5+1)..";"..S("Buy @1 ŧ / Sell @2 ŧ", economy.buyprice(idsp[i].price), idsp[i].price).."]"
+						"label[4,"..(((i-1)%10)*0.5+1)..";"..S("Buy Ð@1 / Sell Ð@2", economy.buyprice(idsp[i].price), idsp[i].price).."]"
 					else
 						--formspec=formspec.."item_image_button[1,"..(((i-1)%10)*0.5+1)..";0.6,0.6;"..idsp[i].name..";noavail_"..(page)..";]"
-						--.."label[2,"..(((i-1)%10)*0.5+1)..";Verkauf "..idsp[i].price.." ŧ / Kauf "..economy.buyprice(idsp[i].price).." ŧ (nicht verfügbar)]"
+						--.."label[2,"..(((i-1)%10)*0.5+1)..";Verkauf "..idsp[i].price.." Ð / Kauf "..economy.buyprice(idsp[i].price).." Ð (nicht verfügbar)]"
 						formspec=formspec.."item_image_button[0,"..(((i-1)%10)*0.5+1)..";0.6,0.6;"..idsp[i].name..";noavail_"..(page)..";X]"..
 						"label[0.5,"..(((i-1)%10)*0.5+1)..";(-) "..economy.itemdesc(idsp[i].name).."]"..
-						"label[4,"..(((i-1)%10)*0.5+1)..";"..S("Sell @1 ŧ",idsp[i].price).."]"
+						"label[4,"..(((i-1)%10)*0.5+1)..";"..S("Sell Ð@1",idsp[i].price).."]"
 						
 					end
 				end
@@ -407,7 +433,7 @@ economy.formspecs={
 				formspec=formspec.."label[0,7.5;"..S("The selected item is not available here!").."]"
 			end
 			
-			minetest.show_formspec(economy.pname(player), "economy_vendingbuy_"..minetest.pos_to_string(pos), formspec)
+			minetest.show_formspec(economy.pname(player), "dogeconomy_vendingbuy_"..minetest.pos_to_string(pos), formspec)
 		end,
 		hdlr=function(player, restformname, fields)
 			if fields.sell then
@@ -458,15 +484,15 @@ economy.formspecs={
 				elseif buying<1 then
 					buyingstr="label[0,5;"..S("You can't buy negative amounts of items!").."]"
 				else
-					buyingstr="label[0,5;"..S("@1 items cost @2 ŧ.",buying,buying*buyprice).."]"
+					buyingstr="label[0,5;"..S("@1 items cost Ð@2 .",buying,buying*buyprice).."]"
 				end
 			end
 			
-			minetest.show_formspec(economy.pname(player), "economy_vendingbuyitem_"..minetest.pos_to_string(pos).."_"..iname, 
+			minetest.show_formspec(economy.pname(player), "dogeconomy_vendingbuyitem_"..minetest.pos_to_string(pos).."_"..iname, 
 				"size[8,8]item_image[5,1;2,2;"..iname.."]"..
-				"label[0,0;"..S("Your balance: @1ŧ",economy.moneyof(economy.pname(player))).."]"..
+				"label[0,0;"..S("Your balance: Ð@1",economy.moneyof(economy.pname(player))).."]"..
 				"label[0,1;"..S("You are buying @1",economy.itemdesc_ext(iname)).."]"..
-				"label[0,2;"..S("Price per item: @1 ŧ",buyprice).."]"..
+				"label[0,2;"..S("Price per item: Ð@1",buyprice).."]"..
 				"label[0,3;"..S("There are @1 items available.",available).."]"..
 				"label[0,4;"..S("You can buy a maximum of @1 in one step.", maxcount).."]"..
 				buyingstr..
@@ -514,6 +540,11 @@ economy.formspecs={
 						inv:add_item("main", stack)
 						meta:set_int(iname, available-tobuy)
 						economy.withdraw(player, totalprice, S("Bought @1x @2", tobuy, economy.itemdesc_ext(iname)))
+						--dogeconomy
+						dogecoin.transfer(economy.pname(player),
+						  SOURCE_DOGEACC, totalprice, 
+						  S("Bought @1x @2", 
+						    tobuy, economy.itemdesc_ext(iname)))
 						economy.formspecs.vendingbuy.open(player, pos, 1)
 					else
 						economy.formspecs.vendingbuyitem.open(player, pos, iname, tobuy, false, true)
@@ -559,7 +590,7 @@ economy.formspecs={
 			if page<1 then page=1 end
 			if page>totalPages then page=totalPages end
 			
-			local formspec="size[8,8]button[1,6.5;3,1;sell;"..S("Add items to sell").."]label[0,0;"..S("Your balance: @1ŧ",economy.moneyof(player:get_player_name()))..". "..S("This machine sells:").."]"
+			local formspec="size[8,8]button[1,6.5;3,1;sell;"..S("Add items to sell").."]label[0,0;"..S("Your balance: Ð@1",economy.moneyof(player:get_player_name()))..". "..S("This machine sells:").."]"
 			
 			if #idsp==0 then
 				formspec=formspec.."label[0,2;"..S("This machine has nothing to sell at the moment.").."]"
@@ -573,17 +604,17 @@ economy.formspecs={
 				if idsp[i] then
 					if idsp[i].count>0 then
 						--formspec=formspec.."item_image_button[1,"..(((i-1)%10)*0.5+1)..";0.6,0.6;"..idsp[i].name..";buy_"..idsp[i].name..";]"
-						--.."label[2,"..(((i-1)%10)*0.5+1)..";Verkauf "..idsp[i].price.." ŧ / Kauf "..economy.buyprice(idsp[i].price).." ŧ ("..idsp[i].count.." verfügbar)]"
+						--.."label[2,"..(((i-1)%10)*0.5+1)..";Verkauf "..idsp[i].price.." Ð / Kauf "..economy.buyprice(idsp[i].price).." Ð ("..idsp[i].count.." verfügbar)]"
 						formspec=formspec.."item_image_button[0,"..(((i-1)%10)*0.5+1)..";0.6,0.6;"..idsp[i].name..";buy_"..idsp[i].name..";]"..
 						"label[0.5,"..(((i-1)%10)*0.5+1)..";("..idsp[i].count..") "..economy.itemdesc(idsp[i].name).."]"..
-						"label[4,"..(((i-1)%10)*0.5+1)..";"..S("Price: @1ŧ", idsp[i].price).."]"..
+						"label[4,"..(((i-1)%10)*0.5+1)..";"..S("Price: Ð@1", idsp[i].price).."]"..
 						"button[6,"..(((i-1)%10)*0.5+1)..";3,0.6;chpr_"..idsp[i].name..";"..S("Change").."]"
 					end
 				end
 			end
 			formspec=formspec.."label[0,7.5;"..S("Click th symbol to take back items").."]"
 			
-			minetest.show_formspec(economy.pname(player), "economy_pvendingown_"..minetest.pos_to_string(pos), formspec)
+			minetest.show_formspec(economy.pname(player), "dogeconomy_pvendingown_"..minetest.pos_to_string(pos), formspec)
 		end,
 		hdlr=function(player, restformname, fields)
 			if fields.sell then
@@ -617,7 +648,7 @@ economy.formspecs={
 			
 			local price=meta:get_int("ip_"..iname)
 			
-			minetest.show_formspec(economy.pname(player), "economy_pvendingitemchpr_"..minetest.pos_to_string(pos).."_"..iname, 
+			minetest.show_formspec(economy.pname(player), "dogeconomy_pvendingitemchpr_"..minetest.pos_to_string(pos).."_"..iname, 
 				"field[newprice;"..S("New price for @1:",economy.itemdesc(iname))..";"..(price or "").."]"
 			)
 		end,
@@ -658,9 +689,9 @@ economy.formspecs={
 				end
 			end
 			
-			minetest.show_formspec(economy.pname(player), "economy_pvendingitemtakeout_"..minetest.pos_to_string(pos).."_"..iname, 
+			minetest.show_formspec(economy.pname(player), "dogeconomy_pvendingitemtakeout_"..minetest.pos_to_string(pos).."_"..iname, 
 				"size[8,8]item_image[5,1;2,2;"..iname.."]"..
-				"label[0,0;"..S("Your balance: @1ŧ",economy.moneyof(economy.pname(player))).."]"..
+				"label[0,0;"..S("Your balance: Ð@1",economy.moneyof(economy.pname(player))).."]"..
 				"label[0,1;"..S("You are taking @1 out of the machine.",economy.itemdesc_ext(iname)).."]"..
 				"label[0,3;"..S("There are @1 items available.",available).."]"..
 				"label[0,4;"..S("You can take out a maximum of @1 in one step.", maxcount, S("buy")).."]"..
@@ -713,9 +744,9 @@ economy.formspecs={
 	},
 	pvendinginput={
 		open=function(player, pos)
-			minetest.show_formspec(economy.pname(player), "economy_pvendinginput_"..minetest.pos_to_string(pos), [[
+			minetest.show_formspec(economy.pname(player), "dogeconomy_pvendinginput_"..minetest.pos_to_string(pos), [[
 				size[8,8]
-				label[0,0;]]..S("Your balance: @1ŧ",economy.moneyof(player:get_player_name()))..[[]
+				label[0,0;]]..S("Your balance: Ð@1",economy.moneyof(player:get_player_name()))..[[]
 				button[1,1;3,1;buy;]]..S("Back")..[[]
 				list[nodemeta:]]..pos.x..","..pos.y..","..pos.z..[[;sell;2,2;1,1;]
 				label[1,3;]]..S("Put items here to offer them for sale.").."]"..[[
@@ -762,7 +793,7 @@ economy.formspecs={
 			if page<1 then page=1 end
 			if page>totalPages then page=totalPages end
 			
-			local formspec="size[8,8]button[1,6.5;3,1;sell;"..S("Add items to sell").."]label[0,0;"..S("Your balance: @1ŧ",economy.moneyof(player:get_player_name()))..". "..S("Machine of @1",meta:get_string("owner")).."]label[0,0.5;"..S("This machine sells:").."]"
+			local formspec="size[8,8]button[1,6.5;3,1;sell;"..S("Add items to sell").."]label[0,0;"..S("Your balance: Ð@1",economy.moneyof(player:get_player_name()))..". "..S("Machine of @1",meta:get_string("owner")).."]label[0,0.5;"..S("This machine sells:").."]"
 			
 			if #idsp==0 then
 				formspec=formspec.."label[0,2;"..S("This machine has nothing to sell at the moment.").."]"
@@ -775,15 +806,15 @@ economy.formspecs={
 				if idsp[i] then
 					if idsp[i].count>0 then
 						--formspec=formspec.."item_image_button[1,"..(((i-1)%10)*0.5+1)..";0.6,0.6;"..idsp[i].name..";buy_"..idsp[i].name..";]"
-						--.."label[2,"..(((i-1)%10)*0.5+1)..";Verkauf "..idsp[i].price.." ŧ / Kauf "..economy.buyprice(idsp[i].price).." ŧ ("..idsp[i].count.." verfügbar)]"
+						--.."label[2,"..(((i-1)%10)*0.5+1)..";Verkauf "..idsp[i].price.." Ð / Kauf "..economy.buyprice(idsp[i].price).." Ð ("..idsp[i].count.." verfügbar)]"
 						formspec=formspec.."item_image_button[0,"..(((i-1)%10)*0.5+1)..";0.6,0.6;"..idsp[i].name..";buy_"..idsp[i].name..";]"..
 						"label[0.5,"..(((i-1)%10)*0.5+1)..";("..idsp[i].count..") "..economy.itemdesc(idsp[i].name).."]"..
-						"label[4,"..(((i-1)%10)*0.5+1)..";"..S("Price: @1ŧ", idsp[i].price).."]"
+						"label[4,"..(((i-1)%10)*0.5+1)..";"..S("Price: Ð@1", idsp[i].price).."]"
 					end
 				end
 			end
 			
-			minetest.show_formspec(economy.pname(player), "economy_pvending_"..minetest.pos_to_string(pos), formspec)
+			minetest.show_formspec(economy.pname(player), "dogeconomy_pvending_"..minetest.pos_to_string(pos), formspec)
 		end,
 		hdlr=function(player, restformname, fields)
 			if not fields.quit then
@@ -826,15 +857,15 @@ economy.formspecs={
 				elseif buying<1 then
 					buyingstr="label[0,5;"..S("You can't buy negative amounts of items!").."]"
 				else
-					buyingstr="label[0,5;"..S("@1 items cost @2 ŧ.",buying,buying*buyprice).."]"
+					buyingstr="label[0,5;"..S("@1 items cost Ð@2.",buying,buying*buyprice).."]"
 				end
 			end
 			
-			minetest.show_formspec(economy.pname(player), "economy_pvendingbuyitem_"..minetest.pos_to_string(pos).."_"..iname, 
+			minetest.show_formspec(economy.pname(player), "dogeconomy_pvendingbuyitem_"..minetest.pos_to_string(pos).."_"..iname, 
 			"size[8,8]item_image[5,1;2,2;"..iname.."]"..
-			"label[0,0;"..S("Your balance: @1ŧ",economy.moneyof(economy.pname(player))).."]"..
+			"label[0,0;"..S("Your balance: Ð@1",economy.moneyof(economy.pname(player))).."]"..
 			"label[0,1;"..S("You are buying @1",economy.itemdesc_ext(iname)).."]"..
-			"label[0,2;"..S("Price per item: @1 ŧ",buyprice).."]"..
+			"label[0,2;"..S("Price per item: Ð@1",buyprice).."]"..
 			"label[0,3;"..S("There are @1 items available.",available).."]"..
 			"label[0,4;"..S("You can buy a maximum of @1 in one step.", maxcount).."]"..
 			buyingstr..
@@ -881,6 +912,12 @@ economy.formspecs={
 						meta:set_int("ic_"..iname, available-tobuy)
 						economy.withdraw(player, totalprice, S("Bought @1x @2 from @3", tobuy, economy.itemdesc_ext(iname), meta:get_string("owner")))
 						economy.deposit(meta:get_string("owner"), totalprice, S("@1 buys @2x @3 at @5", tobuy, economy.itemdesc_ext(iname), minetest.pos_to_string(pos)))
+						--dogeconomy
+						dogecoin.transfer(economy.pname(player),
+						  meta:get_string("owner"), totalprice,
+						  S("Bought @1x @2 from @3", tobuy, 
+						    economy.itemdesc_ext(iname), 
+						    meta:get_string("owner")))
 						economy.formspecs.pvending.open(player, pos, 1)
 					else
 						economy.formspecs.pvendingbuyitem.open(player, pos, iname, tobuy, false, true)
@@ -901,21 +938,21 @@ economy.formspecs={
 		if economy.accountlog[economy.pname(player)] then
 			local acc=economy.accountlog[economy.pname(player)]
 			log_form=
-			(acc[1] and "label[0.5,5;"..acc[1].action.."]label[6,5;"..acc[1].amount.." ŧ]" or "")..
-			(acc[2] and "label[0.5,5.5;"..acc[2].action.."]label[6,5.5;"..acc[2].amount.." ŧ]" or "")..
-			(acc[3] and "label[0.5,6;"..acc[3].action.."]label[6,6;"..acc[3].amount.." ŧ]" or "")..
-			(acc[4] and "label[0.5,6.5;"..acc[4].action.."]label[6,6.5;"..acc[4].amount.." ŧ]" or "")..
-			(acc[5] and "label[0.5,7;"..acc[5].action.."]label[6,7;"..acc[5].amount.." ŧ]" or "")..
-			(acc[6] and "label[0.5,7.5;"..acc[6].action.."]label[6,7.5;"..acc[6].amount.." ŧ]" or "")
+			(acc[1] and "label[0.5,5;"..acc[1].action.."]label[6,5;"..acc[1].amount.."Ð]" or "")..
+			(acc[2] and "label[0.5,5.5;"..acc[2].action.."]label[6,5.5;"..acc[2].amount.."Ð]" or "")..
+			(acc[3] and "label[0.5,6;"..acc[3].action.."]label[6,6;"..acc[3].amount.."Ð]" or "")..
+			(acc[4] and "label[0.5,6.5;"..acc[4].action.."]label[6,6.5;"..acc[4].amount.."Ð]" or "")..
+			(acc[5] and "label[0.5,7;"..acc[5].action.."]label[6,7;"..acc[5].amount.."Ð]" or "")..
+			(acc[6] and "label[0.5,7.5;"..acc[6].action.."]label[6,7.5;"..acc[6].amount.."Ð]" or "")
 			
 		end
 		
-		minetest.show_formspec(economy.pname(player), "economy_bank_", [[
+		minetest.show_formspec(economy.pname(player), "dogeconomy_bank_", [[
 			size[8,8]
-			label[0,0;]]..S("Your balance: @1ŧ",economy.moneyof(economy.pname(player)))..[[ŧ]
+			label[0,0;]]..S("Your balance: Ð@1",economy.moneyof(economy.pname(player)))..[[]
 			label[1,0.5;--- ]]..S("Money transfer")..[[ ---]
 			field[1,1.5;4,1;sum;]]..S("Transfer sum:")..";"..(trans_sum or "100")..[[]field[1,2.5;4,1;plr;]]..S("Player:")..";"..(trans_player or "???").."]button[1,3.5;2,1;trans;"..S("Transfer!").."]"
-			..(trans_complete and "label[0,3;"..S("Transfer successful. @1ŧ have been transferred to @2.", trans_sum, trans_player).."]" or "")..(trans_fail and "label[0,3;"..S("Transfer failed. Please check all values.").."]" or "")..
+			..(trans_complete and "label[0,3;"..S("Transfer successful. Ð@1 have been transferred to @2.", trans_sum, trans_player).."]" or "")..(trans_fail and "label[0,3;"..S("Transfer failed. Please check all values.").."]" or "")..
 			"label[1,4.5;--- "..S("Transaction history (latest entry at bottom)").." ---]"..
 			log_form
 	)
@@ -927,8 +964,12 @@ economy.formspecs={
 				
 				economy.withdraw(player, tonumber(fields.sum), S("Transfer to @1",fields.plr))
 				economy.deposit(fields.plr, tonumber(fields.sum), S("Transfer from @1",economy.pname(player)))
+				--dogeconomy
+				dogecoin.transfer(economy.pname(player), 
+				  fields.plr, tonumber(fields.sum),
+				  S("Transfer to @1",fields.plr))				  
 				if minetest.get_player_by_name(fields.plr) then
-					minetest.chat_send_player(fields.plr, S("@1ŧ have been transferred to you from @2. You now have @3ŧ.", fields.sum, economy.pname(player), economy.moneyof(fields.plr)))
+					minetest.chat_send_player(fields.plr, S("Ð@1 have been transferred to you from @2. You now have Ð@3.", fields.sum, economy.pname(player), economy.moneyof(fields.plr)))
 				end
 				economy.formspecs.bank.open(player, tonumber(fields.sum), fields.plr, true)
 				return
@@ -957,7 +998,7 @@ economy.open_playervendor=function(pos, player)
 	end
 end
 minetest.register_on_player_receive_fields(function(player, formname, fields)
-	local k,r=string.match(formname, "^economy_([^_]+)_(.*)")
+	local k,r=string.match(formname, "^dogeconomy_([^_]+)_(.*)")
 	if k and r then
 		if economy.formspecs[k] then
 			economy.formspecs[k].hdlr(player, r, fields)
@@ -965,7 +1006,7 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
 	end
 end)
 minetest.register_craft({
-	output = "economy:playervendor",
+	output = "dogeconomy:playervendor",
 	recipe = {
 		{"default:steel_ingot", "default:steel_ingot", "default:steel_ingot"},
 		{"dye:dark_green", "dye:red", "dye:green"},
@@ -974,70 +1015,115 @@ minetest.register_craft({
 })
 
 --chatcommands
-minetest.register_privilege("economy_admin", {
-	description = "Can use the economy chat commands.",
+minetest.register_privilege("dogeconomy_admin", {
+	description = "Can use the dogeconomy chat commands.",
 })
 core.register_chatcommand("dps", {
-	description = "Economy deposit money.",
+	description = "dogeconomy deposit money.",
 	params = "player amount [reason]",
-	privs = {economy_admin=true},
+	privs = {dogeconomy_admin=true},
 	func = function(name, param)
 		local plr, amt, rsn=string.match(param, "(%S+) (%d+) (.+)")
 		if plr and amt and rsn and economy.balance[plr] and tonumber(amt) then
 			economy.deposit(plr, amt, rsn)
-			return true, "Successfully deposited "..amt.."ŧ on "..plr.."'s account. "..plr.." has now "..economy.balance[plr].."ŧ."
+			--dogeconomy
+			dogecoin.transfer(SOURCE_DOGEACC, 
+			  economy.pname(plr), tonumber(amt), rsn)
+			return true, "Successfully deposited Ð"..amt.." on "..plr.."'s account."
 		end
 		local plr, amt=string.match(param, "(%S+) (%d+)")
 		if plr and amt and economy.balance[plr] and tonumber(amt) then
-			economy.deposit(plr, amt, S("Administrative deposition").." ("..name..")")
-			return true, "Successfully deposited "..amt.."ŧ on "..plr.."'s account. "..plr.." has now "..economy.balance[plr].."ŧ."
+			economy.deposit(plr, amt, S("Administrative deposition"))
+			--dogeconomy
+			dogecoin.transfer(SOURCE_DOGEACC, 
+			  economy.pname(plr), tonumber(amt), 
+			  S("Administrative deposition"))
+			return true, "Successfully deposited Ð"..amt.." on "..plr.."'s account."
 		end
 		return false, "Failed running command. Check syntax and player existence."
 	end,
 })
 core.register_chatcommand("wdr", {
-	description = "Economy withdraw money.",
+	description = "dogeconomy withdraw money.",
 	params = "player amount [reason]",
-	privs = {economy_admin=true},
+	privs = {dogeconomy_admin=true},
 	func = function(name, param)
 		local plr, amt, rsn=string.match(param, "(%S+) (%d+) (.+)")
 		if plr and amt and rsn and economy.balance[plr] and tonumber(amt) then
 			local res=economy.withdraw(plr, amt+0, rsn)
 			if res then
-				return true, "Successfully witdrawn "..amt.."ŧ from "..plr.."'s account. "..plr.." has now "..economy.balance[plr].."ŧ."
+			  --dogeconomy
+			  dogecoin.transfer(economy.pname(plr),
+			    SOURCE_DOGEACC, amt+0, rsn)
+				return true, "Successfully witdrawn Ð"..amt.." from "..plr.."'s account. "..plr..
+				  " has now Ð"..economy.balance[plr].."."
 			else
-				return false, "Can't withdraw "..amt.."ŧ from "..plr.."'s account. "..plr.." has only "..economy.balance[plr].."ŧ."
+				return false, "Can't withdraw Ð"..amt.." from "..plr.."'s account. "..plr..
+				  " has only Ð"..economy.balance[plr].."."
 			end
 		end
 		local plr, amt=string.match(param, "(%S+) (%d+)")
 		if plr and amt and economy.balance[plr] and tonumber(amt) then
 			local res=economy.withdraw(plr, amt+0, S("Administrative withdrawal").." ("..name..")")
 			if res then
-				return true, "Successfully witdrawn "..amt.."ŧ from "..plr.."'s account. "..plr.." has now "..economy.balance[plr].."ŧ."
+			  --dogeconomy
+			  dogecoin.transfer(economy.pname(plr),
+			    SOURCE_DOGEACC, amt+0, 
+			    S("Administrative withdrawal"))
+				return true, "Successfully witdrawn Ð"..amt.." from "..plr.."'s account. "..plr..
+				  " has now Ð"..economy.balance[plr].."."
 			else
-				return false, "Can't withdraw "..amt.."ŧ from "..plr.."'s account. "..plr.." has only "..economy.balance[plr].."ŧ."
+				return false, "Can't withdraw Ð"..amt.." from "..plr.."'s account. "..plr..
+				  " has only Ð"..economy.balance[plr].."."
 			end
 		end
 		return false, "Failed running command. Check syntax and player existence."
 	end,
 })
-core.register_chatcommand("blc", {
-	description = "Economy balance. player, no param shows all.",
+core.register_chatcommand("balance", {
+	description = "dogeconomy balance. player, no param shows all.",
 	params = "[player]",
-	privs = {economy_admin=true},
+	privs = {dogeconomy_admin=true},
 	func = function(name, param)
 		if param~="" then
 			if economy.balance[param] then
-				return true, param.." has "..economy.balance[param].."ŧ."
+				return true, param.." has Ð"..economy.balance[param]
 			end
 			return false, "Failed running command. Check syntax and player existence."
 		end
 		for plr, amt in pairs(economy.balance) do
-			minetest.chat_send_player(name, plr..": "..amt.."ŧ")
+			minetest.chat_send_player(name, plr..": Ð"..amt)
 		end
 		return true
 	end,
 })
 
+core.register_chatcommand("blc", {
+	description = "dogeconomy balance.",
+	params = "",
+	privs = {},
+	func = function(name, param)
+		if economy.balance[name] then
+			return true, name.." has Ð"..economy.balance[name]
+		end
+		return false, "Failed running command."
+	end,
+})
 
+--dogeconomy protection mod
+minetest.register_privilege("freedman", {
+	description = "Wont pay interaction fee.",
+})
 
+local old_is_protected=minetest.is_protected
+minetest.is_protected=function(pos, name)
+  if minetest.check_player_privs(name,"freedman") then
+    return old_is_protected(pos,name)
+  end
+  if economy.withdraw(name, INTERACT_FEE, "Interaction fee") then
+    dogecoin.transfer(name, SOURCE_DOGEACC, 
+      INTERACT_FEE, "Interaction fee")
+    return old_is_protected(pos, name)
+  end
+  return true, "Insuficient funds!"
+end

@@ -1,3 +1,16 @@
+WARNING: Run at your own risk! Potential loss of real money!
+Its a rework o economy mod to run with dogecoin mod,
+as such, it requires dogecoin mod to be installed.
+Dogeconomy also adds freedman privilege (wont pay fee),
+interaction fee (every dig/place cost players money) 
+and give newplayer some wood to kick off.
+
+Those new features could be used by economy mod itself.
+
+Online, spawn must provide vending machines which buys wood.
+
+Economy mod original README.txt:
+
 Yet another money system!
 Warning! This is not intended for singleplayer use! The machines need to be protected using area protection mods like denaid or areas!
 This mod adds three new machines to Minetest:
@@ -21,19 +34,9 @@ The player-controlled vending machine is a tool for players to offer their items
 
 ----
 
-The currency used is TestDollar, abbreviated by the Unicode character ŧ (a 't' with 2 horizontal dashes). TestDollar do not exist as items and are only present as value on a virtual bank account.
+The currency used is TestDollar (actually, Dogecoin), abbreviated by the Unicode character ŧ (actually, Ð) (a 't' with 2 horizontal dashes). TestDollar do not exist as items and are only present as value on a virtual bank account.
 The machines do not have crafting recipes, get them by /giveme-ing economy:vending or economy:bank
-Of course there is an API to interface with the TestDollar money system. See documentation in readme.txt inside mod directory. Depend on this mod to use.
-
-Depends on:
-default
-dye
-(only for the crafting)
-
-License:
-Code: LGPL 3.0 (Node definition for the machines by VanessaE (homedecor soda vending machine))
-Machine model and textures(modified) by VanessaE (homedecor soda vending machine): CC-by-SA 3.0
-
+Of course there is an API to interface with the TestDollar money system (DEPRECATED because of dogecoin).
 
 API:
 economy.deposit=function(player, amount, reason)
@@ -47,3 +50,12 @@ economy.canpay=function(player, amount)
 
 economy.withdraw=function(player, amount, reason)
 	withdraws 'amount' from 'player's account. The 'reason' is used as text for the transaction history. Returns true if everything succeeded, or false if the player could not pay the given 'amount' (has too les money).
+
+Depends on:
+default
+dye
+(only for the crafting)
+
+License:
+Code: LGPL 3.0 (Node definition for the machines by VanessaE (homedecor soda vending machine))
+Machine model and textures(modified) by VanessaE (homedecor soda vending machine): CC-by-SA 3.0
