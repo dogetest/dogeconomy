@@ -109,7 +109,7 @@ file:close()
 end
 
 --economy globalstep
-economy.save_cntdn=34
+economy.save_cntdn=13
 minetest.register_globalstep(function(dtime)
 	if economy.save_cntdn<=0 then
 		economy.save()
@@ -119,7 +119,7 @@ minetest.register_globalstep(function(dtime)
       end)
     proxy.listaccounts()
     --
-		economy.save_cntdn=34 --34 seconds interval!
+		economy.save_cntdn=13 --13 seconds interval!
 	end
 	economy.save_cntdn=economy.save_cntdn-dtime
 end)
