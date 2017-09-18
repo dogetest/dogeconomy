@@ -2,12 +2,18 @@ WARNING: Run at your own risk! Potential loss of real money!
 Its a rework o economy mod to run with dogecoin mod,
 as such, it requires dogecoin mod to be installed.
 Dogeconomy also adds freedman privilege (wont pay fee),
-interaction fee (every dig/place cost players money) 
-and give newplayer some wood to kick off.
-
+interaction fee (every dig/place cost players money).
 Those new features could be used by economy mod itself.
+Because of protection mod some initial must given to player 
+so him/her could sell it to start off. So configure at your minetest.conf
+somthing like this:
 
-Online, spawn must provide vending machines which buys wood.
+    give_initial_stuff = true
+    initial_stuff = default:tree 1,default:axe_stone
+
+Spawns must provide vending machines to which players are going to sell itens.
+Because of dogecoin, deposits are delayed, while withdraws are
+processed immediately.
 
 Economy mod original README.txt:
 
