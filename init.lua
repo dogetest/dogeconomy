@@ -349,7 +349,7 @@ economy.withdraw=function(player, amount, reason)
 	if not economy.canpay(player, amount) then
 		return false
 	end
-	local amount = amount+DOGE_FEE
+	local amount = amount
 	economy.balance[pname]=economy.balance[pname]-amount
 	if not economy.accountlog[pname] then
 		economy.accountlog[pname]={}
