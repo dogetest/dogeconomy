@@ -15,7 +15,6 @@ economy={}
 --dogeconomy
 SOURCE_DOGEACC="admin"
 DOGE_FEE=1
-INTERACT_FEE=1+DOGE_FEE
 --
 
 economy.itemprices_pr={
@@ -1109,21 +1108,3 @@ core.register_chatcommand("blc", {
 		return false, "Failed running command."
 	end,
 })
-
---dogeconomy protection mod
-minetest.register_privilege("freedman", {
-	description = "Wont pay interaction fee.",
-})
-
-local old_is_protected=minetest.is_protected
-minetest.is_protected=function(pos, name)
-  if minetest.check_player_privs(name,"freedman") then
-    return old_is_protected(pos,name)
-  end
-  if economy.withdraw(name, INTERACT_FEE, "Interaction fee") then
-    dogecoin.transfer(name, SOURCE_DOGEACC, 
-      INTERACT_FEE, "Interaction fee")
-    return old_is_protected(pos, name)
-  end
-  return true, "Insuficient funds!"
-end
