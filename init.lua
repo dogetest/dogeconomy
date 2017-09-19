@@ -14,7 +14,6 @@ economy={}
 
 --dogeconomy
 SOURCE_DOGEACC="admin"
-DOGE_FEE=1
 --
 
 economy.itemprices_pr={
@@ -339,7 +338,7 @@ economy.canpay=function(player, amount)
 	if not economy.balance[pname] then
 		economy.balance[pname]=0
 	end
-	return economy.balance[pname]>=amount+DOGE_FEE
+	return economy.balance[pname]>=amount
 end
 economy.buyprice=function(sellprice)
 	return math.ceil(sellprice*1.2)
