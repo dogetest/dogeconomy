@@ -1,6 +1,5 @@
 WARNING: Run at your own risk! Potential loss of real money!
-Its a rework o economy mod to run with dogecoin mod,
-as such, it requires dogecoin mod to be installed.
+Its a rework o economy mod to run with dogecoin mod.
 
 Economy mod original README.txt:
 
