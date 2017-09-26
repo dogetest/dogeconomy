@@ -1,5 +1,4 @@
-WARNING: Run at your own risk! Potential loss of real money!
-Its a rework o economy mod to run with dogecoin mod.
+Dogeconomy is a rework o economy mod to run with dogecoin mod.
 
 Economy mod original README.txt:
 
